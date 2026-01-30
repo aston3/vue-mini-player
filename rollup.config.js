@@ -11,7 +11,7 @@ import { string } from 'rollup-plugin-string';
 const plugins = [
   ignoreImport({
     // Ignore all .scss and .css file imports while building the bundle
-    extensions: ['.scss', '.less', '.jpg', '.png', '.html?raw'],
+    extensions: ['.scss', '.less', '.jpg', '.png'],
     // Optional: replace body for ignored files. Default value is "export default undefined;"
     body: 'export default undefined;'
   }),
@@ -32,7 +32,6 @@ const plugins = [
   }),
   terser()
 ]
-
 
 export default [
   // esm js
