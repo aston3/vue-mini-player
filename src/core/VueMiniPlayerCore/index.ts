@@ -1,224 +1,296 @@
-import MusicPlayerCore from '../MusicPlayerCore'
-import execSecTime from '../../utils/execSecTime'
-import Draggable from '../../directives/draggable'
-import Adsorb from '../../directives/wrapperAdsorb'
-// @ts-expect-error: use plugin to register import raw
-import template from '../../template/index.html'
-import '../../css/index.css'
-import '../../assets/fonts/iconfont/iconfont.css'
+import { defineComponent, onMounted, onUnmounted, reactive, ref } from 'vue';
+import MusicPlayerCore from '../MusicPlayerCore';
+import execSecTime from '../../utils/execSecTime';
+import DraggableDirective from '../../directives/draggable';
+import AdsorbDirective from '../../directives/wrapperAdsorb';
+import defaultIcon from '../../assets/icon.jpg';
+import '../../css/index.css';
+import '../../assets/fonts/iconfont/iconfont.css';
 
-export interface VueMiniPlayerCoreProps {
-  defaultIconPath?: string
-  rootElement?: string | HTMLElement
-  /** player github link log on console, set to false if you don't want to show */
-  ad?: boolean
-  /** player will show at right if set to true */
-  initRight?: boolean
+interface SongInfo {
+  id: string;
+  name: string;
+  img?: string;
 }
 
-let store: MusicPlayerCore
-const WrapperID = "CoreWrapper"
-let hiddenTimer: number
+export default defineComponent({
+  name: 'VueMiniPlayerCore',
+  directives: {
+    draggable: DraggableDirective,
+    'wrapper-adsorb': AdsorbDirective
+  },
+  setup() {
+    const store = reactive({
+      IsPlaying: false,
+      IsMute: false,
+      PlayMode: 1 as 1 | 2 | 3 | 4,
+      CurrentSongId: '',
+      SongIdList: [] as string[],
+      SongIdMap: {} as Record<string, SongInfo>,
+      PlayerCore: null as MusicPlayerCore | null,
+      defaultIconPath: defaultIcon
+    });
 
-export default class VueMiniPlayerCore {
-  PlayerCore: MusicPlayerCore
-  e: HTMLAudioElement
-  constructor(o?: VueMiniPlayerCoreProps) {
-    const { rootElement, ad = true, initRight = false, defaultIconPath = '' } = o || {}
-    this.PlayerCore = PetiteVue.reactive(new MusicPlayerCore(o))
-    this.e = this.PlayerCore.e
-    store = this.PlayerCore
+    const mediaCurrentTime = ref('00:00');
+    const mediaDuration = ref('00:00');
+    const showupPrecentage = ref(0);
+    const dragging = ref(false);
+    const onRight = ref(false);
+    const hidden = ref(false);
+    const hover = ref(false);
+    const showList = ref(false);
+    const hiddenTimer = ref<number | null>(null);
+    const playerRef = ref<HTMLAudioElement | null>(null);
 
-    if (ad) console.log('Vue-Mini-Player powered by: https://github.com/QingXia-Ela/vue-mini-player');
+    const currentSongInfo = reactive({
+      name: 'No Song',
+      id: '',
+      img: ''
+    });
 
-    const _p = document.createElement('div')
-    _p.setAttribute('id', 'CorePlayer')
-    _p.innerHTML = template
-    _p.querySelector("#CoreWrapper")?.setAttribute("style", initRight ? "right: 0;" : "left: 0;")
-    if (rootElement) {
-      if (typeof rootElement === 'string')
-        document.querySelector(rootElement)?.appendChild(_p)
-      else
-        rootElement.appendChild(_p)
-    }
-    else
-      document.body.appendChild(_p)
+    const songInfoList = ref<SongInfo[]>([]);
 
-    const app = PetiteVue.createApp({
-      store,
-      dragging: false,
-      onRight: initRight,
-      hidden: true,
-      hover: false,
-      currentTime: 0,
-      duration: 0,
-      showupPrecentage: 0,
-      showList: false,
-      sliding: false,
-      slidingTime: 0,
-      defaultIconPath,
-      onMounted() {
-        const { e } = store
-
-        e.addEventListener('timeupdate', () => {
-          if (!this.sliding) {
-            this.CurrentTime = e.currentTime
-            this._UpdateShowPrecentage(this.CurrentTime / this.duration)
-          }
-        })
-
-        e.addEventListener('loadedmetadata', () => {
-          if (!this.sliding)
-            this.duration = e.duration
-        })
-
-        this.store.e.addEventListener('ended', () => {
-          const { SongIdList, CurrentSongId, PlayMode } = this.store
-          const p = SongIdList.indexOf(CurrentSongId)
-          switch (PlayMode) {
-            case 1:
-              if (p !== SongIdList.length) store.NextSong()
-              break;
-            case 2:
-              store.NextSong()
-              break;
-            case 3:
-              store.Play()
-              break;
-            case 4:
-              let l = parseInt(SongIdList.length * Math.random() + '')
-              while (l === CurrentSongId) {
-                l = parseInt(SongIdList.length * Math.random() + '')
-              }
-              store.PlaySelectSong(SongIdList[l])
-              break;
-            default:
-              store.NextSong()
-              break;
-          }
-        })
-      },
-      get currentPrecentage() {
-        return (this.currentTime * 100).toFixed(2)
-      },
-      get currentSongInfo() {
-        const s = store.SongIdMap[store.CurrentSongId]
-        return s ? s : {
-          name: '_(:з」∠)_'
-        }
-      },
-      get mediaDuration() {
-        return execSecTime(this.duration)
-      },
-      get mediaCurrentTime() {
-        return this.sliding ? execSecTime(this.slidingTime) : execSecTime(this.CurrentTime)
-      },
-      get songInfoList() {
-        const res = []
-        for (const i of store.SongIdList) {
-          res.push(store.SongIdMap[i])
-        }
-        return res
-      },
-      clearHiddenTimer() {
-        clearTimeout(hiddenTimer)
-      },
-      startTimer() {
-        if (hiddenTimer)
-          this.clearHiddenTimer()
-        hiddenTimer = setTimeout(() => {
-          this.hidden = true
-          this.hover = false
-          this.showList = false
-
-          this.clearHiddenTimer()
-        }, 8000) as unknown as number
-      },
-      /** wrapper */
-      wrapperMouseDown() {
-        this.dragging = true
-        this.hidden = false
-      },
-      wrapperMouseUp() {
-        this.dragging = false
-        const e = document.getElementById(WrapperID)
-        if (e) {
-          if (e.offsetLeft > window.innerWidth / 2) this.onRight = true
-          else this.onRight = false
-        }
-      },
-      wrapperMouseEnter() {
-        this.hover = true
-        this.clearHiddenTimer()
-      },
-      wrapperMouseLeave() {
-        this.hover = false
-        this.startTimer()
-      },
-      clickShow(e: MouseEvent) {
-        clearTimeout(hiddenTimer)
-        this.hidden = !this.hidden
-        if (this.hidden)
-          this.showList = false
-        e.preventDefault();
-        this.startTimer()
-      },
-      _UpdateShowPrecentage(p: any) {
-        if (p > 1) p = 1
-        else if (p < 0) p = 0
-        this.showupPrecentage = (p * 100).toFixed(2)
-        this.slidingTime = this.duration * p
-      },
-      jumpTime(e: MouseEvent) {
-        if (isNaN(this.store.e.duration)) return
-        const slider = e.currentTarget
-        // @ts-expect-error
-        let p = e.offsetX / slider.clientWidth
-        this._UpdateShowPrecentage(p)
-        this.sliding = true
-        // exec p 2 slider length
-        // @ts-expect-error
-        p *= slider.clientWidth
-
-        const slide = (e: MouseEvent) => {
-          const s = document.getElementById(WrapperID)
-          // @ts-expect-error
-          p = (e.clientX - s.offsetLeft - slider.clientWidth)
-          p += this.onRight ? 25 : 85
-          // @ts-expect-error
-          this._UpdateShowPrecentage(p / slider.clientWidth)
-        }
-        const cs = () => {
-          // @ts-expect-error
-          this.store.e.currentTime = (p / slider.clientWidth) * this.duration
-          this.sliding = false
-          window.removeEventListener('mousemove', slide)
-          window.removeEventListener('mouseup', cs)
-        }
-        window.addEventListener('mousemove', slide)
-        window.addEventListener('mouseup', cs)
-      },
-      switchListShow() {
-        this.showList = !this.showList
-      },
-      async CorePlay() {
-        try {
-          await store.Play()
-        } catch (err) {
-          console.log(err);
-        }
-      },
-      CorePause() {
-        store.Pause()
-      },
-      CorePlaySelectSong(id: string) {
-        store.PlaySelectSong(id)
+    // Core methods
+    const CorePlay = async () => {
+      if (store.PlayerCore) {
+        await store.PlayerCore.Play();
+        store.IsPlaying = true;
       }
-    })
+    };
 
-    app.directive('draggable', Draggable)
-    /** wrapper directive */
-    app.directive('wrapper-adsorb', Adsorb)
-    app.mount(_p)
+    const CorePause = () => {
+      if (store.PlayerCore) {
+        store.PlayerCore.Pause();
+        store.IsPlaying = false;
+      }
+    };
+
+    const CorePlaySelectSong = (id: string) => {
+      store.PlayerCore?.PlaySelectSong(id);
+      updateCurrentSongInfo();
+    };
+
+    // Event handlers
+    const wrapperMouseDown = () => {
+      dragging.value = true;
+    };
+
+    const wrapperMouseUp = () => {
+      dragging.value = false;
+    };
+
+    const wrapperMouseEnter = () => {
+      hover.value = true;
+      clearHiddenTimer();
+    };
+
+    const wrapperMouseLeave = () => {
+      hover.value = false;
+      startHiddenTimer();
+    };
+
+    const clickShow = () => {
+      onRight.value = !onRight.value;
+    };
+
+    const switchListShow = () => {
+      showList.value = !showList.value;
+    };
+
+    const clearHiddenTimer = () => {
+      if (hiddenTimer.value) {
+        clearTimeout(hiddenTimer.value);
+        hiddenTimer.value = null;
+      }
+      hidden.value = false;
+    };
+
+    const startHiddenTimer = () => {
+      hiddenTimer.value = window.setTimeout(() => {
+        hidden.value = true;
+      }, 2000);
+    };
+
+    const jumpTime = (e: MouseEvent) => {
+      if (!playerRef.value || !store.PlayerCore) return;
+      
+      const track = e.currentTarget as HTMLElement;
+      const rect = track.getBoundingClientRect();
+      const percentage = (e.clientX - rect.left) / rect.width;
+      const newTime = percentage * playerRef.value.duration;
+      
+      store.PlayerCore.ChangeCurrentSongTime(newTime);
+      updateTimeDisplay();
+    };
+
+    // Update methods
+    const updateCurrentSongInfo = () => {
+      if (!store.PlayerCore) return;
+      
+      const currentSong = store.PlayerCore.QuerySongInfo(store.PlayerCore.CurrentSongId);
+      if (currentSong) {
+        currentSongInfo.name = currentSong.name;
+        currentSongInfo.id = currentSong.id;
+        currentSongInfo.img = currentSong.img || store.defaultIconPath;
+      }
+    };
+
+    const updateTimeDisplay = () => {
+      if (!playerRef.value) return;
+      
+      mediaCurrentTime.value = execSecTime(playerRef.value.currentTime);
+      mediaDuration.value = execSecTime(playerRef.value.duration);
+      showupPrecentage.value = (playerRef.value.currentTime / playerRef.value.duration) * 100;
+    };
+
+    const updateSongList = () => {
+      songInfoList.value = store.SongIdList.map(id => store.SongIdMap[id]).filter(Boolean);
+    };
+
+    // Lifecycle hooks
+    onMounted(() => {
+      if (!playerRef.value) return;
+
+      // Initialize player core with actual implementation
+      store.PlayerCore = new MusicPlayerCore({ 
+        defaultIconPath: store.defaultIconPath 
+      });
+
+      playerRef.value.addEventListener('timeupdate', updateTimeDisplay);
+      playerRef.value.addEventListener('loadedmetadata', updateTimeDisplay);
+      playerRef.value.addEventListener('ended', handleSongEnded);
+      window.addEventListener('keydown', handleKeyDown);
+      startHiddenTimer();
+    });
+
+    onUnmounted(() => {
+      if (!playerRef.value) return;
+
+      playerRef.value.removeEventListener('timeupdate', updateTimeDisplay);
+      playerRef.value.removeEventListener('loadedmetadata', updateTimeDisplay);
+      playerRef.value.removeEventListener('ended', handleSongEnded);
+      window.removeEventListener('keydown', handleKeyDown);
+      clearHiddenTimer();
+    });
+
+    const handleSongEnded = () => {
+      if (!store.PlayerCore) return;
+
+      switch (store.PlayerCore.PlayMode) {
+        case 1: // Sequential
+          if (store.SongIdList.indexOf(store.CurrentSongId) === store.SongIdList.length - 1) {
+            CorePause();
+          } else {
+            store.PlayerCore.NextSong();
+          }
+          break;
+        case 2: // Loop all
+          store.PlayerCore.NextSong();
+          break;
+        case 3: // Loop single
+          playerRef.value?.play();
+          break;
+        case 4: // Random
+          let newIndex;
+          const currentIndex = store.SongIdList.indexOf(store.CurrentSongId);
+          do {
+            newIndex = Math.floor(Math.random() * store.SongIdList.length);
+          } while (newIndex === currentIndex);
+          CorePlaySelectSong(store.SongIdList[newIndex]);
+          break;
+      }
+    };
+
+    // Keyboard shortcuts
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const activeElement = document.activeElement;
+      if (activeElement && ['INPUT', 'TEXTAREA'].includes(activeElement.tagName)) {
+        return;
+      }
+
+      switch (event.key) {
+        case ' ':
+          event.preventDefault();
+          store.IsPlaying ? CorePause() : CorePlay();
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (playerRef.value) {
+            const newTime = Math.min(
+              playerRef.value.currentTime + 5,
+              playerRef.value.duration
+            );
+            store.PlayerCore?.ChangeCurrentSongTime(newTime);
+          }
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (playerRef.value) {
+            const newTime = Math.max(
+              playerRef.value.currentTime - 5,
+              0
+            );
+            store.PlayerCore?.ChangeCurrentSongTime(newTime);
+          }
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          if (playerRef.value) {
+            const newVolume = Math.min(playerRef.value.volume + 0.1, 1);
+            playerRef.value.volume = newVolume;
+            if (store.IsMute) {
+              store.IsMute = false;
+              playerRef.value.muted = false;
+            }
+          }
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          if (playerRef.value) {
+            const newVolume = Math.max(playerRef.value.volume - 0.1, 0);
+            playerRef.value.volume = newVolume;
+            if (store.IsMute) {
+              store.IsMute = false;
+              playerRef.value.muted = false;
+            }
+          }
+          break;
+        case 'm':
+        case 'M':
+          event.preventDefault();
+          if (playerRef.value) {
+            store.IsMute = !store.IsMute;
+            playerRef.value.muted = store.IsMute;
+          }
+          break;
+      }
+    };
+
+    return {
+      store,
+      mediaCurrentTime,
+      mediaDuration,
+      showupPrecentage,
+      dragging,
+      onRight,
+      hidden,
+      hover,
+      showList,
+      currentSongInfo,
+      songInfoList,
+      playerRef,
+      wrapperMouseDown,
+      wrapperMouseUp,
+      wrapperMouseEnter,
+      wrapperMouseLeave,
+      clickShow,
+      switchListShow,
+      clearHiddenTimer,
+      CorePlay,
+      CorePause,
+      CorePlaySelectSong,
+      jumpTime,
+      handleKeyDown
+    };
   }
-}
+});
