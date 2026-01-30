@@ -17,39 +17,45 @@ describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
   const createEvent = (key: string) => new KeyboardEvent('keydown', { key });
 
   it('toggles play/pause when Space is pressed', async () => {
-    const toggleSpy = vi.spyOn(wrapper.vm, 'togglePlayPause');
+    const initialPlayingState = wrapper.vm.isPlaying;
     window.dispatchEvent(createEvent(' '));
-    expect(toggleSpy).toHaveBeenCalled();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.isPlaying).toBe(!initialPlayingState);
   });
 
   it('seeks forward 5s when ArrowRight is pressed', async () => {
-    const seekSpy = vi.spyOn(wrapper.vm, 'seek');
+    const initialTime = wrapper.vm.currentTime;
     window.dispatchEvent(createEvent('ArrowRight'));
-    expect(seekSpy).toHaveBeenCalledWith(5);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.currentTime).toBe(initialTime + 5);
   });
 
   it('seeks backward 5s when ArrowLeft is pressed', async () => {
-    const seekSpy = vi.spyOn(wrapper.vm, 'seek');
+    wrapper.vm.currentTime = 10; // Set initial time
     window.dispatchEvent(createEvent('ArrowLeft'));
-    expect(seekSpy).toHaveBeenCalledWith(-5);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.currentTime).toBe(5);
   });
 
   it('increases volume when ArrowUp is pressed', async () => {
-    const volumeSpy = vi.spyOn(wrapper.vm, 'adjustVolume');
+    const initialVolume = wrapper.vm.volume;
     window.dispatchEvent(createEvent('ArrowUp'));
-    expect(volumeSpy).toHaveBeenCalledWith(0.1);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.volume).toBe(parseFloat((initialVolume + 0.1).toFixed(1)));
   });
 
   it('decreases volume when ArrowDown is pressed', async () => {
-    const volumeSpy = vi.spyOn(wrapper.vm, 'adjustVolume');
+    wrapper.vm.volume = 0.5;
     window.dispatchEvent(createEvent('ArrowDown'));
-    expect(volumeSpy).toHaveBeenCalledWith(-0.1);
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.volume).toBe(0.4);
   });
 
   it('toggles mute when M is pressed', async () => {
-    const muteSpy = vi.spyOn(wrapper.vm, 'toggleMute');
+    const initialMuteState = wrapper.vm.isMuted;
     window.dispatchEvent(createEvent('m'));
-    expect(muteSpy).toHaveBeenCalled();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.isMuted).toBe(!initialMuteState);
   });
 
   it('ignores shortcuts when focused on input', async () => {
@@ -57,9 +63,10 @@ describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
     document.body.appendChild(input);
     input.focus();
 
-    const toggleSpy = vi.spyOn(wrapper.vm, 'togglePlayPause');
+    const initialPlayingState = wrapper.vm.isPlaying;
     window.dispatchEvent(createEvent(' '));
-    expect(toggleSpy).not.toHaveBeenCalled();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.isPlaying).toBe(initialPlayingState);
 
     document.body.removeChild(input);
   });
