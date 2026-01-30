@@ -22,12 +22,15 @@ export default defineComponent({
 
     const seek = (seconds: number) => {
       if (!playerRef.value) return;
-      playerRef.value.currentTime += seconds;
+      const newTime = playerRef.value.currentTime + seconds;
+      playerRef.value.currentTime = Math.max(0, Math.min(newTime, duration.value));
+      currentTime.value = playerRef.value.currentTime;
     };
 
     const adjustVolume = (delta: number) => {
+      const newVolume = volume.value + delta;
       volume.value = parseFloat(
-        Math.min(1, Math.max(0, volume.value + delta)).toFixed(1)
+        Math.min(1, Math.max(0, newVolume)).toFixed(1)
       );
       if (playerRef.value) {
         playerRef.value.volume = volume.value;
@@ -88,19 +91,24 @@ export default defineComponent({
       }
     };
 
+    // Store handler references for cleanup
+    const keyDownHandler = (e: KeyboardEvent) => handleKeyDown(e);
+    const timeUpdateHandler = () => handleTimeUpdate();
+    const loadedMetadataHandler = () => handleLoadedMetadata();
+
     onMounted(() => {
-      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keydown', keyDownHandler);
       if (playerRef.value) {
-        playerRef.value.addEventListener('timeupdate', handleTimeUpdate);
-        playerRef.value.addEventListener('loadedmetadata', handleLoadedMetadata);
+        playerRef.value.addEventListener('timeupdate', timeUpdateHandler);
+        playerRef.value.addEventListener('loadedmetadata', loadedMetadataHandler);
       }
     });
 
     onUnmounted(() => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', keyDownHandler);
       if (playerRef.value) {
-        playerRef.value.removeEventListener('timeupdate', handleTimeUpdate);
-        playerRef.value.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        playerRef.value.removeEventListener('timeupdate', timeUpdateHandler);
+        playerRef.value.removeEventListener('loadedmetadata', loadedMetadataHandler);
       }
     });
 

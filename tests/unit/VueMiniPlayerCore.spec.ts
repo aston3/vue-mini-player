@@ -1,61 +1,122 @@
 import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import VueMiniPlayerCore from '@/core/VueMiniPlayerCore/index.ts';
+
+// Mock HTMLMediaElement methods
+window.HTMLMediaElement.prototype.play = jest.fn();
+window.HTMLMediaElement.prototype.pause = jest.fn();
 
 describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
   let wrapper: any;
+  let playerMock: any;
 
   beforeEach(() => {
+    playerMock = {
+      play: jest.fn(),
+      pause: jest.fn(),
+      currentTime: 50,
+      duration: 100,
+      volume: 0.5,
+      muted: false,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
+    };
+
     wrapper = mount(VueMiniPlayerCore, {
       attachTo: document.body,
+      global: {
+        mocks: {
+          playerRef: playerMock
+        }
+      }
     });
   });
 
   afterEach(() => {
     wrapper.unmount();
+    jest.clearAllMocks();
   });
 
   const createEvent = (key: string) => new KeyboardEvent('keydown', { key });
 
   it('toggles play/pause when Space is pressed', async () => {
-    const initialPlayingState = wrapper.vm.isPlaying;
+    wrapper.vm.isPlaying = false;
     window.dispatchEvent(createEvent(' '));
-    await wrapper.vm.$nextTick();
-    expect(wrapper.vm.isPlaying).toBe(!initialPlayingState);
+    await nextTick();
+    expect(wrapper.vm.isPlaying).toBe(true);
+    expect(playerMock.play).toHaveBeenCalled();
+
+    wrapper.vm.isPlaying = true;
+    window.dispatchEvent(createEvent(' '));
+    await nextTick();
+    expect(wrapper.vm.isPlaying).toBe(false);
+    expect(playerMock.pause).toHaveBeenCalled();
   });
 
   it('seeks forward 5s when ArrowRight is pressed', async () => {
-    const initialTime = wrapper.vm.currentTime;
     window.dispatchEvent(createEvent('ArrowRight'));
-    await wrapper.vm.$nextTick();
-    expect(wrapper.vm.currentTime).toBe(initialTime + 5);
+    await nextTick();
+    expect(playerMock.currentTime).toBe(55);
   });
 
   it('seeks backward 5s when ArrowLeft is pressed', async () => {
-    wrapper.vm.currentTime = 10; // Set initial time
+    playerMock.currentTime = 10;
     window.dispatchEvent(createEvent('ArrowLeft'));
-    await wrapper.vm.$nextTick();
-    expect(wrapper.vm.currentTime).toBe(5);
+    await nextTick();
+    expect(playerMock.currentTime).toBe(5);
+  });
+
+  it('clamps seek values within duration bounds', async () => {
+    playerMock.currentTime = 98;
+    window.dispatchEvent(createEvent('ArrowRight'));
+    await nextTick();
+    expect(playerMock.currentTime).toBe(100);
+
+    playerMock.currentTime = 2;
+    window.dispatchEvent(createEvent('ArrowLeft'));
+    await nextTick();
+    expect(playerMock.currentTime).toBe(0);
   });
 
   it('increases volume when ArrowUp is pressed', async () => {
-    const initialVolume = wrapper.vm.volume;
+    wrapper.vm.volume = 0.5;
     window.dispatchEvent(createEvent('ArrowUp'));
-    await wrapper.vm.$nextTick();
-    expect(wrapper.vm.volume).toBe(parseFloat((initialVolume + 0.1).toFixed(1)));
+    await nextTick();
+    expect(wrapper.vm.volume).toBe(0.6);
+    expect(playerMock.volume).toBe(0.6);
   });
 
   it('decreases volume when ArrowDown is pressed', async () => {
     wrapper.vm.volume = 0.5;
     window.dispatchEvent(createEvent('ArrowDown'));
-    await wrapper.vm.$nextTick();
+    await nextTick();
     expect(wrapper.vm.volume).toBe(0.4);
+    expect(playerMock.volume).toBe(0.4);
+  });
+
+  it('clamps volume between 0 and 1', async () => {
+    wrapper.vm.volume = 0.95;
+    window.dispatchEvent(createEvent('ArrowUp'));
+    await nextTick();
+    expect(wrapper.vm.volume).toBe(1);
+
+    wrapper.vm.volume = 0.05;
+    window.dispatchEvent(createEvent('ArrowDown'));
+    await nextTick();
+    expect(wrapper.vm.volume).toBe(0);
   });
 
   it('toggles mute when M is pressed', async () => {
-    const initialMuteState = wrapper.vm.isMuted;
+    wrapper.vm.isMuted = false;
     window.dispatchEvent(createEvent('m'));
-    await wrapper.vm.$nextTick();
-    expect(wrapper.vm.isMuted).toBe(!initialMuteState);
+    await nextTick();
+    expect(wrapper.vm.isMuted).toBe(true);
+    expect(playerMock.muted).toBe(true);
+
+    window.dispatchEvent(createEvent('M'));
+    await nextTick();
+    expect(wrapper.vm.isMuted).toBe(false);
+    expect(playerMock.muted).toBe(false);
   });
 
   it('ignores shortcuts when focused on input', async () => {
@@ -65,7 +126,7 @@ describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
 
     const initialPlayingState = wrapper.vm.isPlaying;
     window.dispatchEvent(createEvent(' '));
-    await wrapper.vm.$nextTick();
+    await nextTick();
     expect(wrapper.vm.isPlaying).toBe(initialPlayingState);
 
     document.body.removeChild(input);
