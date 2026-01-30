@@ -1,5 +1,5 @@
 import { defineComponent, onMounted, onUnmounted, reactive, ref } from 'vue';
-import type MusicPlayerCore from '../MusicPlayerCore';
+import MusicPlayerCore from '../MusicPlayerCore';
 import execSecTime from '../../utils/execSecTime';
 import DraggableDirective from '../../directives/draggable';
 import AdsorbDirective from '../../directives/wrapperAdsorb';
@@ -66,10 +66,8 @@ export default defineComponent({
     };
 
     const CorePlaySelectSong = (id: string) => {
-      if (store.PlayerCore) {
-        store.PlayerCore.PlaySelectSong(id);
-        updateCurrentSongInfo();
-      }
+      store.PlayerCore?.PlaySelectSong(id);
+      updateCurrentSongInfo();
     };
 
     // Event handlers
@@ -153,9 +151,15 @@ export default defineComponent({
     onMounted(() => {
       if (!playerRef.value) return;
 
+      // Initialize player core with actual implementation
+      store.PlayerCore = new MusicPlayerCore({ 
+        defaultIconPath: store.defaultIconPath 
+      });
+
       playerRef.value.addEventListener('timeupdate', updateTimeDisplay);
       playerRef.value.addEventListener('loadedmetadata', updateTimeDisplay);
       playerRef.value.addEventListener('ended', handleSongEnded);
+      window.addEventListener('keydown', handleKeyDown);
       startHiddenTimer();
     });
 
@@ -165,6 +169,7 @@ export default defineComponent({
       playerRef.value.removeEventListener('timeupdate', updateTimeDisplay);
       playerRef.value.removeEventListener('loadedmetadata', updateTimeDisplay);
       playerRef.value.removeEventListener('ended', handleSongEnded);
+      window.removeEventListener('keydown', handleKeyDown);
       clearHiddenTimer();
     });
 
@@ -186,8 +191,12 @@ export default defineComponent({
           playerRef.value?.play();
           break;
         case 4: // Random
-          const randomIndex = Math.floor(Math.random() * store.SongIdList.length);
-          CorePlaySelectSong(store.SongIdList[randomIndex]);
+          let newIndex;
+          const currentIndex = store.SongIdList.indexOf(store.CurrentSongId);
+          do {
+            newIndex = Math.floor(Math.random() * store.SongIdList.length);
+          } while (newIndex === currentIndex);
+          CorePlaySelectSong(store.SongIdList[newIndex]);
           break;
       }
     };
@@ -207,25 +216,28 @@ export default defineComponent({
         case 'ArrowRight':
           event.preventDefault();
           if (playerRef.value) {
-            playerRef.value.currentTime = Math.min(
+            const newTime = Math.min(
               playerRef.value.currentTime + 5,
               playerRef.value.duration
             );
+            store.PlayerCore?.ChangeCurrentSongTime(newTime);
           }
           break;
         case 'ArrowLeft':
           event.preventDefault();
           if (playerRef.value) {
-            playerRef.value.currentTime = Math.max(
+            const newTime = Math.max(
               playerRef.value.currentTime - 5,
               0
             );
+            store.PlayerCore?.ChangeCurrentSongTime(newTime);
           }
           break;
         case 'ArrowUp':
           event.preventDefault();
           if (playerRef.value) {
-            playerRef.value.volume = Math.min(playerRef.value.volume + 0.1, 1);
+            const newVolume = Math.min(playerRef.value.volume + 0.1, 1);
+            playerRef.value.volume = newVolume;
             if (store.IsMute) {
               store.IsMute = false;
               playerRef.value.muted = false;
@@ -235,7 +247,8 @@ export default defineComponent({
         case 'ArrowDown':
           event.preventDefault();
           if (playerRef.value) {
-            playerRef.value.volume = Math.max(playerRef.value.volume - 0.1, 0);
+            const newVolume = Math.max(playerRef.value.volume - 0.1, 0);
+            playerRef.value.volume = newVolume;
             if (store.IsMute) {
               store.IsMute = false;
               playerRef.value.muted = false;
@@ -252,12 +265,6 @@ export default defineComponent({
           break;
       }
     };
-
-    // Initialize player core
-    store.PlayerCore = new (class implements MusicPlayerCore {
-      // Implement all MusicPlayerCore methods here
-      // ... [full implementation from original MusicPlayerCore]
-    })();
 
     return {
       store,

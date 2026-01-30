@@ -40,16 +40,16 @@ describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
   const createEvent = (key: string) => new KeyboardEvent('keydown', { key });
 
   it('toggles play/pause when Space is pressed', async () => {
-    wrapper.vm.isPlaying = false;
+    wrapper.vm.store.IsPlaying = false;
     window.dispatchEvent(createEvent(' '));
     await nextTick();
-    expect(wrapper.vm.isPlaying).toBe(true);
+    expect(wrapper.vm.store.IsPlaying).toBe(true);
     expect(playerMock.play).toHaveBeenCalled();
 
-    wrapper.vm.isPlaying = true;
+    wrapper.vm.store.IsPlaying = true;
     window.dispatchEvent(createEvent(' '));
     await nextTick();
-    expect(wrapper.vm.isPlaying).toBe(false);
+    expect(wrapper.vm.store.IsPlaying).toBe(false);
     expect(playerMock.pause).toHaveBeenCalled();
   });
 
@@ -79,43 +79,43 @@ describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
   });
 
   it('increases volume when ArrowUp is pressed', async () => {
-    wrapper.vm.volume = 0.5;
+    wrapper.vm.store.volume = 0.5;
     window.dispatchEvent(createEvent('ArrowUp'));
     await nextTick();
-    expect(wrapper.vm.volume).toBe(0.6);
+    expect(wrapper.vm.store.volume).toBe(0.6);
     expect(playerMock.volume).toBe(0.6);
   });
 
   it('decreases volume when ArrowDown is pressed', async () => {
-    wrapper.vm.volume = 0.5;
+    wrapper.vm.store.volume = 0.5;
     window.dispatchEvent(createEvent('ArrowDown'));
     await nextTick();
-    expect(wrapper.vm.volume).toBe(0.4);
+    expect(wrapper.vm.store.volume).toBe(0.4);
     expect(playerMock.volume).toBe(0.4);
   });
 
   it('clamps volume between 0 and 1', async () => {
-    wrapper.vm.volume = 0.95;
+    wrapper.vm.store.volume = 0.95;
     window.dispatchEvent(createEvent('ArrowUp'));
     await nextTick();
-    expect(wrapper.vm.volume).toBe(1);
+    expect(wrapper.vm.store.volume).toBe(1);
 
-    wrapper.vm.volume = 0.05;
+    wrapper.vm.store.volume = 0.05;
     window.dispatchEvent(createEvent('ArrowDown'));
     await nextTick();
-    expect(wrapper.vm.volume).toBe(0);
+    expect(wrapper.vm.store.volume).toBe(0);
   });
 
   it('toggles mute when M is pressed', async () => {
-    wrapper.vm.isMuted = false;
+    wrapper.vm.store.IsMuted = false;
     window.dispatchEvent(createEvent('m'));
     await nextTick();
-    expect(wrapper.vm.isMuted).toBe(true);
+    expect(wrapper.vm.store.IsMuted).toBe(true);
     expect(playerMock.muted).toBe(true);
 
     window.dispatchEvent(createEvent('M'));
     await nextTick();
-    expect(wrapper.vm.isMuted).toBe(false);
+    expect(wrapper.vm.store.IsMuted).toBe(false);
     expect(playerMock.muted).toBe(false);
   });
 
@@ -124,10 +124,10 @@ describe('VueMiniPlayerCore Keyboard Shortcuts', () => {
     document.body.appendChild(input);
     input.focus();
 
-    const initialPlayingState = wrapper.vm.isPlaying;
+    const initialPlayingState = wrapper.vm.store.IsPlaying;
     window.dispatchEvent(createEvent(' '));
     await nextTick();
-    expect(wrapper.vm.isPlaying).toBe(initialPlayingState);
+    expect(wrapper.vm.store.IsPlaying).toBe(initialPlayingState);
 
     document.body.removeChild(input);
   });
