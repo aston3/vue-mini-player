@@ -1,4 +1,3 @@
-
 export default function execSecTime(t: number) {
   if (!t) t = 0
   let m: string | number = parseInt((t / 60) + '')

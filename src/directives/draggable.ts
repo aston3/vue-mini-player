@@ -1,7 +1,7 @@
 import throttle from 'lodash/throttle'
 /**
  * @example
- * 
+ *
  * const myDirective = (ctx) => {
   // the element the directive is on
   ctx.el
@@ -31,7 +31,6 @@ import throttle from 'lodash/throttle'
 // register the directive
 createApp().directive('my-dir', myDirective).mount()
  */
-
 
 const Draggable = (ctx: any) => {
   const ele: HTMLDivElement = ctx.exp ? document.querySelector(ctx.exp) : ctx.el

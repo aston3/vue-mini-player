@@ -7,6 +7,7 @@ export const usePlayerStore = defineStore('player', () => {
   const duration = ref(0);
   const volume = ref(0.5);
   const isMuted = ref(false);
+  const previousVolume = ref(0.5);
 
   const togglePlay = () => {
     isPlaying.value = !isPlaying.value;
@@ -26,12 +27,13 @@ export const usePlayerStore = defineStore('player', () => {
   };
 
   const toggleMute = () => {
-    isMuted.value = !isMuted.value;
     if (isMuted.value) {
-      volume.value = 0;
+      volume.value = previousVolume.value;
     } else {
-      volume.value = 0.5;
+      previousVolume.value = volume.value;
+      volume.value = 0;
     }
+    isMuted.value = !isMuted.value;
   };
 
   return {
